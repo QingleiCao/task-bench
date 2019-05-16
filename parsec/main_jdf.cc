@@ -46,6 +46,9 @@ char **extra_local_memory;
 double *timecount;
 double *timecount_all;
 
+/* Global */
+int M, N, MB, NB, P, SMB, SNB, cores, nodes;
+
 typedef struct matrix_s{
   two_dim_block_cyclic_t dcC;
   int M;
@@ -90,35 +93,118 @@ private:
 ParsecApp::ParsecApp(int argc, char **argv)
   : App(argc, argv)
 { 
-  int i;
+  int i, rank, ch;;
 
-  /* Set defaults for non argv iparams */
-  iparam_default_gemm(iparam);
-  iparam_default_ibnbmb(iparam, 0, 2, 2);
-#if defined(HAVE_CUDA) && 1
-  iparam[IPARAM_NGPUS] = 0;
-#endif
-  
-  //sleep(10);
-  
-  /* Initialize PaRSEC */
-  iparam[IPARAM_N] = 4;
-  iparam[IPARAM_M] = 4;
+    /* Default */
+    M = 8;
+    N = 8;
+    MB = 2;
+    NB = 2;
+    P = 1;
+    SMB = 1;
+    SNB = 1;
+    cores = -1;
   
   nb_fields = 0;
   
   int nb_fields_arg = 0;
+
+#if defined(PARSEC_HAVE_MPI)
+    {
+        int provided;
+        MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    }
+    MPI_Comm_size(MPI_COMM_WORLD, &nodes);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#else
+    nodes = 1;
+    rank = 0;
+#endif
   
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "-field")) {
       nb_fields_arg = atol(argv[++i]);
     }
-  }
-  
-  parsec = setup_parsec(argc, argv, iparam);
-  
-  PASTE_CODE_IPARAM_LOCALS(iparam);
 
+    if (!strcmp(argv[i], "-M")) {
+      M = atol(argv[++i]);
+    }
+
+    if (!strcmp(argv[i], "-N")) {
+      N = atol(argv[++i]);
+    }
+
+    if (!strcmp(argv[i], "-t")) {
+      MB = atol(argv[++i]);
+    }
+
+    if (!strcmp(argv[i], "-T")) {
+      NB = atol(argv[++i]);
+    }
+
+    if (!strcmp(argv[i], "-s")) {
+      SMB = atol(argv[++i]);
+    }
+
+    if (!strcmp(argv[i], "-S")) {
+      SNB = atol(argv[++i]);
+    }
+
+    if (!strcmp(argv[i], "-P")) {
+      P = atol(argv[++i]);
+    }
+
+    if (!strcmp(argv[i], "-c")) {
+      cores = atol(argv[++i]);
+    }
+
+    if (!strcmp(argv[i], "-help")) {
+                fprintf(stderr,
+                        "-M : row dimension (M) of the matrices (default: 4)\n"
+                        "-N : column dimension (N) of the matrices (default: 4)\n"
+                        "-t : row dimension (MB) of the tiles (default: 2)\n"
+                        "-T : column dimension (NB) of the tiles (default: 2)\n"
+                        "-s : rows of tiles in a supertile (default: 1)\n"
+                        "-S : columns of tiles in a supertile (default: 1)\n"
+                        "-P : rows (P) in the PxQ process grid (default: 1)\n"
+                        "-c : number of cores used (default: -1)\n"
+                        "\n");
+    }
+  }
+
+    /* Once we got out arguments, we should pass whatever is left down */
+    int parsec_argc, idx;
+    char** parsec_argv = (char**)calloc(argc, sizeof(char*));
+    parsec_argv[0] = argv[0];  /* the app name */
+    for( idx = parsec_argc = 1;
+         (idx < argc) && (0 != strcmp(argv[idx], "--")); idx++);
+    if( idx != argc ) {
+        for( parsec_argc = 1, idx++; idx < argc;
+             parsec_argv[parsec_argc] = argv[idx], parsec_argc++, idx++);
+    }
+
+    /* Init PaRSEC */
+    parsec = parsec_init(cores, &parsec_argc, &parsec_argv);
+    free(parsec_argv);
+
+    if( NULL == parsec ) {
+        /* Failed to correctly initialize. In a correct scenario report
+ *          * upstream, but in this particular case bail out.
+ *                   */
+        exit(-1);
+    }
+
+    /* If the number of cores has not been defined as a parameter earlier
+ *      * update it with the default parameter computed in parsec_init. */
+    if(cores <= 0)
+    {
+        int p, nb_total_comp_threads = 0;
+        for(p = 0; p < parsec->nb_vp; p++) {
+            nb_total_comp_threads += parsec->virtual_processes[p]->nb_cores;
+        }
+        cores = nb_total_comp_threads;
+    }
+  
 #if defined (TRACK_NB_TASKS)    
   for (i = 0; i < cores; i++) {
       nb_tasks_per_node[i] = 0;
@@ -144,23 +230,13 @@ ParsecApp::ParsecApp(int argc, char **argv)
     MB_cal = sqrt(graph.output_bytes_per_task / sizeof(float));
     
     if (MB_cal > iparam[IPARAM_MB]) {
-      iparam[IPARAM_MB] = MB_cal;
-      iparam[IPARAM_NB] = iparam[IPARAM_MB];
+      MB = MB_cal;
+      NB = NB;
     }
     
-    iparam[IPARAM_N] = graph.max_width * iparam[IPARAM_MB];
-    iparam[IPARAM_M] = nb_fields * iparam[IPARAM_MB];
+    N = graph.max_width * MB;
+    M = nb_fields * MB;
   
-    parse_arguments(&argc, &argv, iparam);
-    
-    print_arguments(iparam);
-    
-    PASTE_CODE_IPARAM_LOCALS_MAT(iparam);
-    
-    debug_printf(0, "output_bytes_per_task %d, mb %d, nb %d\n", graph.output_bytes_per_task, mat.MB, mat.NB);
-  
-    assert(graph.output_bytes_per_task <= sizeof(float) * mat.MB * mat.NB);
-
     /* Set P to 1 */
     if( P != 1 ) {
        P = 1;
@@ -169,17 +245,38 @@ ParsecApp::ParsecApp(int argc, char **argv)
            printf("Warnning: set P = 1 Q = %d\n", nodes);
     }
 
+    int nodes_vp = 2;
     /* Set P to 1 */
-    if( (mat.N/mat.NB % nodes == 0 && mat.SNB != mat.N/mat.NB/nodes)
-        || (mat.N/mat.NB % nodes != 0 && mat.SNB != mat.N/mat.NB/nodes + 1) ) {
-        if( 0 == mat.N/mat.NB % nodes )
-            mat.SNB = mat.N/mat.NB/nodes;
+    if( (N/NB % nodes_vp == 0 && SNB != N/NB/nodes_vp)
+        || (N/NB % nodes_vp != 0 && SNB != N/NB/nodes_vp + 1) ) {
+        if( 0 == N/NB % nodes_vp )
+            SNB = N/NB/nodes_vp;
         else
-            mat.SNB = mat.N/mat.NB/nodes + 1;
+            SNB = N/NB/nodes_vp + 1;
 
         if( 0 == rank )
-           printf("Warnning: set distribution to two dim block; SNB = %d\n", mat.SNB);
+           printf("WARNNING: set distribution to two dim block; SNB = %d\n", SNB);
     }
+
+    {
+        fprintf(stderr, "#+++++ nodes x cores        : %d x %d\n", nodes, cores);
+        fprintf(stderr, "#+++++ P x Q                : %d x %d\n", P, nodes/P);
+        fprintf(stderr, "#+++++ M x N                : %d x %d\n", M, N);
+        fprintf(stderr, "#+++++ MB x NB              : %d x %d\n", MB, NB);
+        fprintf(stderr, "#+++++ SMB x SNB            : %d x %d\n", SMB, SNB); 
+    }
+
+    mat.M     = M;
+    mat.N     = N;
+    mat.MB    = MB;
+    mat.NB    = NB;
+    mat.SMB   = SMB;
+    mat.SNB   = SNB;
+    mat.MT    = (mat.M%mat.MB==0) ? (mat.M/mat.MB) : (mat.M/mat.MB+1);
+    mat.NT    = (mat.N%mat.NB==0) ? (mat.N/mat.NB) : (mat.N/mat.NB+1);
+
+    debug_printf(0, "output_bytes_per_task %d, mb %d, nb %d\n", graph.output_bytes_per_task, mat.MB, mat.NB);
+    assert(graph.output_bytes_per_task <= sizeof(float) * mat.MB * mat.NB);
   
     two_dim_block_cyclic_init(&mat.dcC, matrix_RealFloat, matrix_Tile,
                                nodes, rank, mat.MB, mat.NB, mat.M, mat.N, 0, 0,
@@ -321,11 +418,17 @@ void ParsecApp::execute_main_loop()
         if( timecount_all[i] >= time_max )
             time_max = timecount_all[i];
         time_sum += timecount_all[i];
+        //printf("time_for_cores: %lf\n", timecount_all[i]);
     }
-    printf("\tKernel_time_max: %lf, Kernel_time_avg: %lf, Time_diff: %lf\n", time_max, time_sum/cores, elapsed-time_max);
+    printf("\tKernel_time_max: %lf Kernel_time_avg: %lf Time_diff: %lf Time_sum: %lf\n", time_max, time_sum/cores, elapsed-time_max, time_sum);
   }
 
-  cleanup_parsec(parsec, iparam);
+    /* Clean up parsec*/
+    parsec_fini(&parsec);
+
+#ifdef PARSEC_HAVE_MPI
+    MPI_Finalize();
+#endif
 
 }
 

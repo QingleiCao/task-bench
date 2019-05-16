@@ -1,8 +1,8 @@
-ifndef PARSEC_DIR
-$(error PARSEC_DIR variable is not defined, aborting build)
-endif
+#ifndef PARSEC_DIR
+#$(error PARSEC_DIR variable is not defined, aborting build)
+#endif
 
-PARSEC_SRC = $(PARSEC_DIR)/../..
+#PARSEC_SRC = $(PARSEC_DIR)/../..
 
 #PARSEC_DIR = /home/qcao3/task-bench/software/parsec/build/install
 #PARSEC_SRC = /home/qcao3/task-bench/software/parsec
@@ -25,11 +25,18 @@ ifeq ($(strip $(DEBUG)),0)
 CFLAGS		 += -O3
 CFLAGS_JDF	 += -O3
 LDFLAGS		 += -O3
+BUILD_TYPE	 = O3
 else
 CFLAGS		 += -g -O0
 CFLAGS_JDF	 += -g -O0
 LDFLAGS		 += -g -O0
+BUILD_TYPE	 = O0
 endif
+
+#BUILD_TYPE	 = O2
+
+PARSEC_DIR = /home/qcao3/parsec/build-$(BUILD_TYPE)/install
+PARSEC_SRC = /home/qcao3/parsec
 
 #PARSEC_DIR = /home/wwu12/parsec-master/install
 #DPLASMA_DIR = $(PARSEC_DIR)

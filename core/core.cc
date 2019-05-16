@@ -1051,13 +1051,13 @@ void App::report_timing(double elapsed_seconds) const
     bytes += count_bytes(g);
   }
 
-  printf("Total Tasks %lld\n", total_num_tasks);
-  printf("Total Dependencies %lld\n", total_num_deps);
-  printf("Total FLOPs %lld\n", flops);
-  printf("Total Bytes %lld\n", bytes);
-  printf("Elapsed Time %e seconds\n", elapsed_seconds);
-  printf("FLOP/s %e\n", flops/elapsed_seconds);
-  printf("B/s %e\n", bytes/elapsed_seconds);
+  printf("Total_Tasks %lld ", total_num_tasks);
+  printf("Total_Dependencies %lld ", total_num_deps);
+  printf("Total_FLOPs %lld ", flops);
+  printf("Total_Bytes %lld ", bytes);
+  printf("Elapsed_Time %lf seconds ", elapsed_seconds);
+  printf("FLOP/s %lf ", flops/elapsed_seconds);
+  printf("B/s %e\t", bytes/elapsed_seconds);
 
 #ifdef DEBUG_CORE
   printf("Task Graph Execution Mask %llx\n", has_executed_graph.load());
