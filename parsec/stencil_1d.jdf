@@ -211,11 +211,12 @@ static int wrap_task(parsec_execution_stream_t * es,
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     int nb_threads = es->virtual_process->nb_cores;
+    int myvpid = es->virtual_process->vp_id;
     int myid = es->th_id;
     parsec_stencil_1d_taskpool_t *parsec_tp = (parsec_stencil_1d_taskpool_t*)this_task->taskpool;
     stime = MPI_Wtime();
     val = parsec_tp->_g_wrap_task(es, this_task); 
-    timecount[myid] += MPI_Wtime() - stime;
+    timecount[myid+myvpid*nb_threads] += MPI_Wtime() - stime;
     return val;
 }
 

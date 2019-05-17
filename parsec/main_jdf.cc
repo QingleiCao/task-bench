@@ -30,6 +30,7 @@
 #include "benchmark_internal.h"
 
 #define MAX_ARGS  4
+#define APPLY  1
 
 #define VERBOSE_LEVEL 0
 
@@ -89,6 +90,24 @@ private:
   int nb_tasks;
   int nb_fields;
 };
+
+static int stencil_1d_init_ops(parsec_execution_stream_t *es,
+                        const parsec_tiled_matrix_dc_t *descA,
+                        void *_A, enum matrix_uplo uplo,
+                        int m, int n, void *args)
+{
+    float *A = (float *)_A;
+    int R = ((int *)args)[0];
+
+    printf("in stencil 1d (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", m, n, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
+
+    for(int j = R; j < descA->nb - R; j++)
+        for(int i = 0; i < descA->mb; i++)
+            A[j*descA->mb+i] = (float)0.0;
+
+    (void)es; (void)uplo; (void)m; (void)n;
+    return 0;
+}
 
 ParsecApp::ParsecApp(int argc, char **argv)
   : App(argc, argv)
@@ -282,10 +301,22 @@ ParsecApp::ParsecApp(int argc, char **argv)
                                nodes, rank, mat.MB, mat.NB, mat.M, mat.N, 0, 0,
                                mat.M, mat.N, mat.SMB, mat.SNB, P);
 
+    parsec_data_collection_set_key((parsec_data_collection_t*)&(mat.dcC), "dcC"); 
+
+#if APPLY
     mat.dcC.mat = parsec_data_allocate((size_t)mat.dcC.super.nb_local_tiles * \
                                    (size_t)mat.dcC.super.bsiz *      \
                                    (size_t)parsec_datadist_getsizeoftype(mat.dcC.super.mtype)); \
-    parsec_data_collection_set_key((parsec_data_collection_t*)&(mat.dcC), "dcC"); 
+    /* Init 0.0
+     */
+    int *op_args = (int *)malloc(sizeof(int));
+    *op_args = 0;
+    parsec_apply( parsec, matrix_UpperLower,
+                  (parsec_tiled_matrix_dc_t *)&mat.dcC,
+                  (tiled_matrix_unary_op_t)stencil_1d_init_ops, op_args);
+#else
+    parsec_benchmark_data_init(parsec, (parsec_tiled_matrix_dc_t *)&mat.dcC);
+#endif
 
     /* For timming */
     timecount = (double *)calloc(cores, sizeof(double));
@@ -418,9 +449,13 @@ void ParsecApp::execute_main_loop()
         if( timecount_all[i] >= time_max )
             time_max = timecount_all[i];
         time_sum += timecount_all[i];
-        //printf("time_for_cores: %lf\n", timecount_all[i]);
     }
-    printf("\tKernel_time_max: %lf Kernel_time_avg: %lf Time_diff: %lf Time_sum: %lf\n", time_max, time_sum/cores, elapsed-time_max, time_sum);
+    printf("\tKernel_time_max: %lf Kernel_time_avg: %lf Time_diff: %lf Time_sum: %lf\n", time_max, time_sum/cores, elapsed-time_sum/cores, time_sum);
+
+    for(int i = 0; i < cores * nodes; i++) {
+        printf(" %d time_for_cores: %lf\n", i, timecount_all[i]);
+    }
+
   }
 
     /* Clean up parsec*/

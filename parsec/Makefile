@@ -62,11 +62,17 @@ all: $(TARGET)
 
 .PRECIOUS: %.cc %.o
 
+benchmark_data_init.c benchmark_data_init.h: benchmark_data_init.jdf
+	$(PP) -E -i $< -o $(basename $<)
+
 stencil_1d.c stencil_1d.h: stencil_1d.jdf
 	$(PP) -E -i $< -o $(basename $<)
 	
 nearest_radix_5.c nearest_radix_5.h: nearest_radix_5.jdf
 	$(PP) -E -i $< -o $(basename $<)
+
+benchmark_data_init.o: benchmark_data_init.c benchmark_data_init.h benchmark_internal.h
+	$(cc) -c $(CFLAGS_JDF) $(INC) $<
 
 stencil_1d.o: stencil_1d.c stencil_1d.h benchmark_internal.h
 	$(cc) -c $(CFLAGS_JDF) $(INC) $<
@@ -110,7 +116,7 @@ main: main.o common.o
 main_shard: main_shard.o common.o 
 	$(CC) $^ $(LIB) $(LDFLAGS) -o $@ 
 
-main_jdf: main_jdf.o common.o stencil_1d.o nearest_radix_5.o benchmark_internal.o benchmark.o spread_radix5_period3.o
+main_jdf: main_jdf.o common.o stencil_1d.o nearest_radix_5.o benchmark_internal.o benchmark.o spread_radix5_period3.o benchmark_data_init.o
 	$(CC) $^ $(LIB) $(LDFLAGS) -o $@
 
 main_buffer: main_buffer.o common.o 
@@ -119,6 +125,6 @@ main_buffer: main_buffer.o common.o
 clean:
 	rm -f *.o
 	rm -f $(TARGET)
-	rm -f benchmark.h benchmark.c stencil_1d.c stencil_1d.h nearest_radix_5.c nearest_radix_5.h spread_radix5_period3.c spread_radix5_period3.h
+	rm -f benchmark.h benchmark.c stencil_1d.c stencil_1d.h nearest_radix_5.c nearest_radix_5.h spread_radix5_period3.c spread_radix5_period3.h benchmark_data_init.c benchmark_data_init.h
 
 .PHONY: all clean

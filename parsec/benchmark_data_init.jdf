@@ -1,0 +1,78 @@
+extern "C" %{
+/*
+ * Copyright (c) 2019 The Universiy of Tennessee and The Universiy
+ *                    of Tennessee Research Foundation. All rights
+ *                    reserved.
+ */
+#include "parsec/data_dist/matrix/matrix.h"
+#include "benchmark_internal.h"
+#include "core_c.h"
+
+%}
+
+descA    [ type = "parsec_tiled_matrix_dc_t*" ]
+
+/***********************************************************
+ ****************** Allocate memory ************************
+ ***********************************************************
+Allocate(m, n)
+
+m = 0 .. descA->lmt-1
+m = 0 .. descA->lnt-1
+
+: descA(m, n)
+
+RW A <- NULL
+
+BODY
+{
+    int size = descA->mb * descA->nb;
+    this_task->data._f_A.data_out = parsec_data_copy_new(data_of_descA(m, n), 0);
+    this_task->data._f_A.data_out->device_private = calloc(size, sizeof(float));
+
+    printf("in stencil 1d (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", m, n, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
+}
+END
+
+extern "C" %{
+
+parsec_taskpool_t*
+parsec_benchmark_data_init_New(parsec_tiled_matrix_dc_t *dcA)
+{
+    parsec_taskpool_t* benchmark_data_init_taskpool;
+    parsec_benchmark_data_init_taskpool_t* taskpool = NULL;
+
+    taskpool = parsec_benchmark_data_init_new(dcA);
+    benchmark_data_init_taskpool = (parsec_taskpool_t*)taskpool;
+
+    parsec_matrix_add2arena(taskpool->arenas[PARSEC_benchmark_data_init_DEFAULT_ARENA],
+                            parsec_datatype_float_t, matrix_UpperLower,
+                            1, dcA->mb, dcA->nb, dcA->mb,
+                            PARSEC_ARENA_ALIGNMENT_SSE, -1 );
+
+    return benchmark_data_init_taskpool;
+}
+
+void parsec_benchmark_data_init_Destruct(parsec_taskpool_t *taskpool)
+{
+    parsec_benchmark_data_init_taskpool_t *benchmark_data_init_taskpool = (parsec_benchmark_data_init_taskpool_t *)taskpool;
+    parsec_matrix_del2arena(benchmark_data_init_taskpool->arenas[PARSEC_benchmark_data_init_DEFAULT_ARENA]);
+    parsec_taskpool_free(taskpool);
+}
+
+int parsec_benchmark_data_init(parsec_context_t *parsec, parsec_tiled_matrix_dc_t *dcA)
+{
+    parsec_taskpool_t *parsec_benchmark_data_init = NULL;
+    parsec_benchmark_data_init = parsec_benchmark_data_init_New(dcA);
+
+    if( parsec_benchmark_data_init != NULL ){
+        parsec_context_add_taskpool(parsec, parsec_benchmark_data_init);
+        parsec_context_start(parsec);
+        parsec_context_wait(parsec);
+        parsec_benchmark_data_init_Destruct(parsec_benchmark_data_init);
+    }
+
+    return 0;
+}
+
+%}
