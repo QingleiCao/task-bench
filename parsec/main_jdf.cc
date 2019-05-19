@@ -30,7 +30,7 @@
 #include "benchmark_internal.h"
 
 #define MAX_ARGS  4
-#define APPLY  1
+#define APPLY  0
 
 #define VERBOSE_LEVEL 0
 
@@ -99,7 +99,7 @@ static int stencil_1d_init_ops(parsec_execution_stream_t *es,
     float *A = (float *)_A;
     int R = ((int *)args)[0];
 
-    printf("in stencil 1d (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", m, n, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
+    //printf("in data init (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", m, n, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
 
     for(int j = R; j < descA->nb - R; j++)
         for(int i = 0; i < descA->mb; i++)

@@ -15,7 +15,6 @@
 
 //#include <parsec/interfaces/ptg/ptg-compiler/jdf.h>
 #include "core_c.h"
-#include <data_dist/matrix/two_dim_rectangle_cyclic.h>
 #include "common.h"
 #include <parsec/execution_stream.h>
 #include <data_dist/matrix/two_dim_rectangle_cyclic.h>

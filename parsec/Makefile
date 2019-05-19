@@ -62,13 +62,13 @@ all: $(TARGET)
 
 .PRECIOUS: %.cc %.o
 
-benchmark_data_init.c benchmark_data_init.h: benchmark_data_init.jdf
-	$(PP) -E -i $< -o $(basename $<)
-
 stencil_1d.c stencil_1d.h: stencil_1d.jdf
 	$(PP) -E -i $< -o $(basename $<)
 	
 nearest_radix_5.c nearest_radix_5.h: nearest_radix_5.jdf
+	$(PP) -E -i $< -o $(basename $<)
+
+benchmark_data_init.c benchmark_data_init.h: benchmark_data_init.jdf
 	$(PP) -E -i $< -o $(basename $<)
 
 benchmark_data_init.o: benchmark_data_init.c benchmark_data_init.h benchmark_internal.h
