@@ -23,7 +23,6 @@ n = 0 .. descA->lnt-1
 : descA(m, n)
 
 RW A <- NULL
-     -> descA(m, n)
 
 BODY
 {
@@ -31,7 +30,8 @@ BODY
     this_task->data._f_A.data_out = parsec_data_copy_new(data_of_descA(m, n), 0);
     this_task->data._f_A.data_out->device_private = calloc(size, sizeof(float));
 
-    printf("in stencil 1d (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", m, n, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
+    printf("in data init (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", m, n, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
+
 }
 END
 
