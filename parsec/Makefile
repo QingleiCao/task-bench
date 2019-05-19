@@ -12,15 +12,6 @@
 
 DEBUG ?= 0
 
-CC         = mpic++
-cc         = mpicc
-PP = ${PARSEC_DIR}/bin/parsec_ptgpp
-
-CFLAGS     = -std=c++11 -D_GNU_SOURCE
-LDFLAGS    = -m64 -std=c++11 -Wall -D_GNU_SOURCE
-
-CFLAGS_JDF     = -D_GNU_SOURCE
-
 ifeq ($(strip $(DEBUG)),0)
 CFLAGS		 += -O3
 CFLAGS_JDF	 += -O3
@@ -37,6 +28,15 @@ endif
 
 PARSEC_DIR = /home/qcao3/parsec/build-$(BUILD_TYPE)/install
 PARSEC_SRC = /home/qcao3/parsec
+
+CC         = mpic++
+cc         = mpicc
+PP = ${PARSEC_DIR}/bin/parsec_ptgpp
+
+CFLAGS     = -std=c++11 -D_GNU_SOURCE
+LDFLAGS    = -m64 -std=c++11 -Wall -D_GNU_SOURCE
+
+CFLAGS_JDF     = -D_GNU_SOURCE
 
 #PARSEC_DIR = /home/wwu12/parsec-master/install
 #DPLASMA_DIR = $(PARSEC_DIR)

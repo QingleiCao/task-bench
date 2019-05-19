@@ -66,7 +66,7 @@ RW A <- descA(m, x)
 
 BODY
 {
-    printf("in stencil 1d (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", t, x, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
+    //printf("in stencil 1d (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", t, x, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
     int num_args; 
     num_args = get_num_args_internal(L, B, R); 
    // printf("t: %d, x: %d, num_args: %d\n", t, x, num_args);
