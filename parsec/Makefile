@@ -16,12 +16,13 @@ ifeq ($(strip $(DEBUG)),0)
 CFLAGS		 += -O3
 CFLAGS_JDF	 += -O3
 LDFLAGS		 += -O3
-BUILD_TYPE	 = O3
+BUILD_TYPE	 += O3
 else
 CFLAGS		 += -g -O0
 CFLAGS_JDF	 += -g -O0
 LDFLAGS		 += -g -O0
 BUILD_TYPE	 = O0
+#BUILD_TYPE	 = test
 endif
 
 #BUILD_TYPE	 = O2
@@ -33,10 +34,10 @@ CC         = mpic++
 cc         = mpicc
 PP = ${PARSEC_DIR}/bin/parsec_ptgpp
 
-CFLAGS     = -std=c++11 -D_GNU_SOURCE
-LDFLAGS    = -m64 -std=c++11 -Wall -D_GNU_SOURCE
+CFLAGS     += -std=c++11 -D_GNU_SOURCE
+LDFLAGS    += -m64 -std=c++11 -Wall -D_GNU_SOURCE
 
-CFLAGS_JDF     = -D_GNU_SOURCE
+CFLAGS_JDF     += -D_GNU_SOURCE
 
 #PARSEC_DIR = /home/wwu12/parsec-master/install
 #DPLASMA_DIR = $(PARSEC_DIR)

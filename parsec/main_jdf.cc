@@ -99,7 +99,7 @@ static int stencil_1d_init_ops(parsec_execution_stream_t *es,
     float *A = (float *)_A;
     int R = ((int *)args)[0];
 
-    //printf("in data init (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", m, n, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
+    printf("in init_data (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vpid: %d, vp_p: %d, vp_q: %d\n", m, n, es->th_id, es->core_id, es->socket_id, es->virtual_process->vp_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
 
     for(int j = R; j < descA->nb - R; j++)
         for(int i = 0; i < descA->mb; i++)

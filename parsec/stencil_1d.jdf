@@ -66,7 +66,7 @@ RW A <- descA(m, x)
 
 BODY
 {
-    //printf("in stencil 1d (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vp_p: %d, vp_q: %d\n", t, x, es->th_id, es->core_id, es->socket_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
+    printf("in stencil 1d (%d, %d): th_id: %d, core_id: %d, socket_id: %d; vpid: %d, vp_p: %d, vp_q: %d\n", t, x, es->th_id, es->core_id, es->socket_id, es->virtual_process->vp_id, ((two_dim_block_cyclic_t *)descA)->grid.vp_p, ((two_dim_block_cyclic_t *)descA)->grid.vp_q);
     int num_args; 
     num_args = get_num_args_internal(L, B, R); 
    // printf("t: %d, x: %d, num_args: %d\n", t, x, num_args);
@@ -120,17 +120,18 @@ static int my_startup_task(parsec_execution_stream_t * es, __parsec_stencil_1d_t
     parsec_context_t *context = __parsec_tp->super.super.context;
     int vpid = 0, nb_tasks = 0;
     size_t total_nb_tasks = 0;
-    parsec_list_item_t *pready_ring = NULL;
+    parsec_list_item_t *pready_ring[context->nb_vp];
     int t = this_task->locals.t.value;  /* retrieve value saved during the last iteration */
     int x = this_task->locals.x.value;  /* retrieve value saved during the last iteration */
     int m = this_task->locals.m.value;  /* retrieve value saved during the last iteration */
+    for (int _i = 0; _i < context->nb_vp; pready_ring[_i++] = NULL);
     if (0 != this_task->locals.reserved[0].value) {
         this_task->locals.reserved[0].value = 1;        /* reset the submission process */
         goto after_insert_task;
     }
     this_task->locals.reserved[0].value = 1;    /* a sane default value */
     for (this_task->locals.t.value = t = 0;
-         this_task->locals.t.value <= 0; this_task->locals.t.value += 1, t = this_task->locals.t.value) {
+         this_task->locals.t.value <= (__parsec_tp->super._g_time_steps - 1); this_task->locals.t.value += 1, t = this_task->locals.t.value) {
         for (this_task->locals.x.value = x = 0;
              this_task->locals.x.value <= (__parsec_tp->super._g_descA->lnt - 1);
              this_task->locals.x.value += 1, x = this_task->locals.x.value) {
@@ -146,7 +147,7 @@ static int my_startup_task(parsec_execution_stream_t * es, __parsec_stencil_1d_t
                 assert(context->nb_vp >= vpid);
             }
             new_task =
-                (__parsec_stencil_1d_task_task_t *) parsec_thread_mempool_allocate(context->virtual_processes[0]->
+                (__parsec_stencil_1d_task_task_t *) parsec_thread_mempool_allocate(context->virtual_processes[vpid]->
                                                                                    execution_streams[0]->
                                                                                    context_mempool);
             new_task->status = PARSEC_TASK_STATUS_NONE;
@@ -174,21 +175,26 @@ static int my_startup_task(parsec_execution_stream_t * es, __parsec_stencil_1d_t
 #if defined(PARSEC_DEBUG_NOISIER)
             {
                 char tmp[128];
-                PARSEC_DEBUG_VERBOSE(10, parsec_debug_output, "Add startup task %s",
-                                     parsec_task_snprintf(tmp, 128, (parsec_task_t *) new_task));
+                PARSEC_DEBUG_VERBOSE(10, parsec_debug_output, "Add startup task %s to vpid %d",
+                                     parsec_task_snprintf(tmp, 128, (parsec_task_t *) new_task), vpid);
             }
 #endif
             parsec_dependencies_mark_task_as_startup((parsec_task_t *) new_task, es);
-            pready_ring = parsec_list_item_ring_push_sorted(pready_ring,
-                                                            (parsec_list_item_t *) new_task,
-                                                            parsec_execution_context_priority_comparator);
+            pready_ring[vpid] = parsec_list_item_ring_push_sorted(pready_ring[vpid],
+                                                                  (parsec_list_item_t *) new_task,
+                                                                  parsec_execution_context_priority_comparator);
             nb_tasks++;
           after_insert_task:    /* we jump here just so that we have code after the label */
             if (nb_tasks > this_task->locals.reserved[0].value) {
                 if ((size_t) this_task->locals.reserved[0].value < parsec_task_startup_iter)
                     this_task->locals.reserved[0].value <<= 1;
-                __parsec_schedule(es, (parsec_task_t *) pready_ring, 0);
-                pready_ring = NULL;
+                for (int _i = 0; _i < context->nb_vp; _i++) {
+                    if (NULL == pready_ring[_i])
+                        continue;
+                    __parsec_schedule(context->virtual_processes[_i]->execution_streams[0],
+                                      (parsec_task_t *) pready_ring[_i], 0);
+                    pready_ring[_i] = NULL;
+                }
                 total_nb_tasks += nb_tasks;
                 nb_tasks = 0;
                 if (total_nb_tasks > parsec_task_startup_chunk) {       /* stop here and request to be rescheduled */
@@ -198,8 +204,16 @@ static int my_startup_task(parsec_execution_stream_t * es, __parsec_stencil_1d_t
         }
     }
     (void) vpid;
-    if (NULL != pready_ring)
-        __parsec_schedule(es, (parsec_task_t *) pready_ring, 0);
+    if (0 != nb_tasks) {
+        for (int _i = 0; _i < context->nb_vp; _i++) {
+            if (NULL == pready_ring[_i])
+                continue;
+            __parsec_schedule(context->virtual_processes[_i]->execution_streams[0], (parsec_task_t *) pready_ring[_i],
+                              0);
+            pready_ring[_i] = NULL;
+        }
+        nb_tasks = 0;
+    }
     return PARSEC_HOOK_RETURN_DONE;
 }
 
