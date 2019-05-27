@@ -277,6 +277,8 @@ ParsecApp::ParsecApp(int argc, char **argv)
            printf("WARNNING: set distribution to two dim block; SNB = %d\n", SNB);
     }
 
+    //SNB = 1;
+
     {
         fprintf(stderr, "#+++++ nodes x cores        : %d x %d\n", nodes, cores);
         fprintf(stderr, "#+++++ P x Q                : %d x %d\n", P, nodes/P);
